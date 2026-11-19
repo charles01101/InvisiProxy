@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>InvisiProxy Control Panel</title>
+    <style>
+      :root {
+        --bg: #0b0e14;
+        --panel: #121722;
+        --panel-2: #171d2b;
+        --line: #232b3d;
+        --text: #e6ebf5;
+        --muted: #8b97ad;
+        --accent: #5b8cff;
+        --accent-2: #7cf5c1;
+        --warn: #ffb454;
+        --bad: #ff6b6b;
+        --radius: 14px;
+        --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(1200px 600px at 15% -10%, #16203a 0%, transparent 60%),
+          radial-gradient(900px 500px at 100% 0%, #101a2b 0%, transparent 55%),
+          var(--bg);
+        color: var(--text);
+        font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 20px 64px; }
+      header { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+      .mark {
+        width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px;
+        background: linear-gradient(135deg, var(--accent), #8b5cf6);
+        display: grid; place-items: center; font-weight: 800; font-size: 18px;
+        box-shadow: 0 8px 24px rgba(91, 140, 255, .35);
+      }
+      h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+      header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+      .notice {
+        display: none; gap: 10px; align-items: flex-start;
+        background: rgba(255, 180, 84, .08);
+        border: 1px solid rgba(255, 180, 84, .28);
+        color: #ffd9a8; padding: 12px 14px; border-radius: 12px;
+        font-size: 13px; margin-bottom: 18px;
+      }
+      .notice.show { display: flex; }
+      .notice code { background: rgba(255,255,255,.07); padding: 1px 6px; border-radius: 6px; font-family: var(--mono); }
+
+      .grid { display: grid; gap: 16px; }
+      .card {
+        background: linear-gradient(180deg, var(--panel), #10141d);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 18px;
+      }
+      .card h2 {
+        margin: 0 0 14px; font-size: 12px; letter-spacing: .12em;
+        text-transform: uppercase; color: var(--muted); font-weight: 600;
+      }
+
+      .status-row { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: space-between; }
+      .status-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+      .dot {
+        width: 12px; height: 12px; border-radius: 50%; flex: 0 0 12px;
+        background: var(--muted); box-shadow: 0 0 0 4px rgba(139,151,173,.12);
+        transition: background .2s, box-shadow .2s;
+      }
+      .dot.online { background: var(--accent-2); box-shadow: 0 0 0 4px rgba(124,245,193,.14); }
+      .dot.offline { background: var(--bad); box-shadow: 0 0 0 4px rgba(255,107,107,.14); }
+      .dot.testing { background: var(--warn); animation: pulse 1s infinite; box-shadow: 0 0 0 4px rgba(255,180,84,.14); }
+      @keyframes pulse { 50% { opacity: .35; } }
+      .status-title { font-size: 17px; font-weight: 650; letter-spacing: -.01em; }
+      .status-sub { color: var(--muted); font-size: 12.5px; font-family: var(--mono); word-break: break-all; }
+
+      .metrics { display: flex; gap: 22px; }
+      .metric { text-align: right; }
+      .metric b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
+      .metric span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+
+      .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+      .field { display: flex; flex-direction: column; gap: 6px; }
+      .field label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+      input, select, button { font: inherit; color: var(--text); }
+      input, select {
+        background: var(--panel-2); border: 1px solid var(--line);
+        border-radius: 10px; padding: 9px 11px; outline: none; min-width: 0;
+      }
+      input:focus, select:focus { border-color: #3a4a6b; box-shadow: 0 0 0 3px rgba(91,140,255,.15); }
+      input[type="number"] { width: 110px; }
+      input[type="text"] { width: 190px; }
+      button {
+        background: var(--panel-2); border: 1px solid var(--line);
+        border-radius: 10px; padding: 9px 14px; cursor: pointer;
+        transition: border-color .15s, background .15s, transform .05s;
+      }
+      button:hover { border-color: #37456a; background: #1b2231; }
+      button:active { transform: translateY(1px); }
+      button.primary {
+        background: linear-gradient(180deg, #4d7cf5, #3d63d6);
+        border-color: #4d7cf5; font-weight: 600;
+      }
+      button.primary:hover { background: linear-gradient(180deg, #5b8cff, #4469dd); }
+      button.ghost { background: transparent; }
+      .toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; cursor: pointer; user-select: none; }
+      .toggle input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+      .targets { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+      .target {
+        background: var(--panel-2); border: 1px solid var(--line);
+        border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px;
+        transition: border-color .15s, transform .15s;
+      }
+      .target:hover { border-color: #34436a; transform: translateY(-1px); }
+      .target .t-name { font-weight: 620; font-size: 14.5px; }
+      .target .t-path { font-family: var(--mono); font-size: 12px; color: var(--muted); word-break: break-all; }
+      .target .t-desc { font-size: 12.5px; color: var(--muted); }
+      .target .t-actions { display: flex; gap: 8px; margin-top: auto; }
+      .target .t-actions button { padding: 7px 11px; font-size: 13px; }
+      .target .t-actions .open { flex: 1; }
+
+      pre {
+        margin: 0; background: #0a0e16; border: 1px solid var(--line);
+        border-radius: 10px; padding: 12px 14px; overflow: auto;
+        font-family: var(--mono); font-size: 12.5px; color: #c4d0e6;
+      }
+      .cmd { display: flex; gap: 8px; align-items: stretch; margin-bottom: 8px; }
+      .cmd pre { flex: 1; white-space: pre; }
+      .cmd button { padding: 0 12px; font-size: 12.5px; }
+
+      .hint { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; }
+      .hint b { color: #b9c5da; font-weight: 600; }
+      footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 28px; }
+      .toast {
+        position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
+        background: #1c2434; border: 1px solid var(--line); color: var(--text);
+        padding: 10px 16px; border-radius: 10px; font-size: 13px;
+        opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+        box-shadow: 0 12px 32px rgba(0,0,0,.45);
+      }
+      .toast.show { opacity: 1; transform: translate(-50%, 0); }
+      @media (max-width: 620px) {
+        .metrics { width: 100%; justify-content: space-between; }
+        .metric { text-align: left; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="mark">IP</div>
+        <div>
+          <h1>InvisiProxy Control Panel</h1>
+          <p>Health check, launcher and boot commands for your local InvisiProxy LTS instance</p>
+        </div>
+      </header>
+
+      <div class="notice" id="fileNotice">
+        <div>
+          <b>Opened from <code>file://</code>.</b>
+          Browsers may block cross-origin probes from local files, so status detection can be unreliable.
+          Serve this page from a local web server for exact results, or use the
+          <b>Open</b> buttons directly.
+        </div>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>Server status</h2>
+          <div class="status-row">
+            <div class="status-left">
+              <div class="dot" id="dot"></div>
+              <div>
+                <div class="status-title" id="statusTitle">Not checked</div>
+                <div class="status-sub" id="statusSub">—</div>
+              </div>
+            </div>
+            <div class="metrics">
+              <div class="metric"><b id="latency">—</b><span>Latency</span></div>
+              <div class="metric"><b id="lastCheck">—</b><span>Last check</span></div>
+            </div>
+          </div>
+          <div class="row" style="margin-top: 16px">
+            <div class="field">
+              <label for="hostSelect">Host</label>
+              <select id="hostSelect">
+                <option value="localhost">localhost</option>
+                <option value="127.0.0.1">127.0.0.1</option>
+                <option value="__custom">custom…</option>
+              </select>
+            </div>
+            <div class="field" id="customHostField" style="display: none">
+              <label for="customHost">Custom host</label>
+              <input id="customHost" type="text" placeholder="proxy.example.com" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="port">Port</label>
+              <input id="port" type="number" min="1" max="65535" value="8080" />
+            </div>
+            <button class="primary" id="checkBtn">Check now</button>
+            <label class="toggle" for="autoCheck">
+              <input type="checkbox" id="autoCheck" />
+              Auto-check every 5s
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Launch proxy frontends</h2>
+          <div class="targets" id="targets"></div>
+          <p class="hint">
+            The proxy pages use a service worker and Wisp, so they only fully work over
+            <b>http://localhost</b> or <b>https</b>. Paste the site you want into the proxy page's own address bar.
+          </p>
+        </section>
+
+        <section class="card">
+          <h2>Boot the server</h2>
+          <div class="cmd"><pre id="cmdFirst">npm run fresh-install</pre><button data-copy="cmdFirst">Copy</button></div>
+          <div class="cmd"><pre id="cmdStart">npm start</pre><button data-copy="cmdStart">Copy</button></div>
+          <div class="cmd"><pre id="cmdStop">npm run stop</pre><button data-copy="cmdStop">Copy</button></div>
+          <div class="cmd"><pre id="cmdDev">npm run manual-start</pre><button data-copy="cmdDev">Copy</button></div>
+          <p class="hint">
+            <b>fresh-install</b> is only needed the first time (and after dependency changes).
+            <b>start</b> stops, builds and launches under PM2 on the port set in <b>ecosystem.config.js</b> (default 8080).
+            A page like this one cannot start Node itself — an unprivileged HTML file has no process access.
+          </p>
+        </section>
+      </div>
+
+      <footer>Runs entirely offline in your browser · No data leaves this page</footer>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      (() => {
+        'use strict';
+
+        const STORAGE_KEY = 'invisiproxy-control-panel';
+
+        const TARGETS = [
+          { name: 'Browsing hub', path: '/browsing', desc: 'Landing page with all proxy modes.' },
+          { name: 'Ultraviolet', path: '/ultraviolet', desc: 'Service-worker proxy, best general compatibility.' },
+          { name: 'Scramjet', path: '/scramjet', desc: 'Newer rewriter, faster on modern sites.' },
+          { name: 'Rammerhead', path: '/rammerhead', desc: 'Server-side session proxy (URLs look like /rammerhead/…).' },
+          { name: 'Docs', path: '/documentation', desc: 'Self-hosting and configuration docs.' },
+          { name: 'FAQ', path: '/questions', desc: 'Common questions and troubleshooting.' },
+        ];
+
+        const $ = (id) => document.getElementById(id);
+        const els = {
+          dot: $('dot'),
+          title: $('statusTitle'),
+          sub: $('statusSub'),
+          latency: $('latency'),
+          lastCheck: $('lastCheck'),
+          hostSelect: $('hostSelect'),
+          customHost: $('customHost'),
+          customHostField: $('customHostField'),
+          port: $('port'),
+          checkBtn: $('checkBtn'),
+          autoCheck: $('autoCheck'),
+          targets: $('targets'),
+          toast: $('toast'),
+          fileNotice: $('fileNotice'),
+        };
+
+        let autoTimer = null;
+        let checking = false;
+
+        /* ---------- state ---------- */
+
+        const loadState = () => {
+          try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+          } catch {
+            return {};
+          }
+        };
+
+        const saveState = () => {
+          try {
+            localStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify({
+                host: els.hostSelect.value,
+                customHost: els.customHost.value.trim(),
+                port: els.port.value,
+                autoCheck: els.autoCheck.checked,
+              })
+            );
+          } catch {
+            /* storage disabled — ignore */
+          }
+        };
+
+        const hostValue = () => {
+          const selected = els.hostSelect.value;
+          return selected === '__custom' ? els.customHost.value.trim() : selected;
+        };
+
+        const portValue = () => {
+          const n = Number.parseInt(els.port.value, 10);
+          return Number.isFinite(n) && n > 0 && n <= 65535 ? n : 8080;
+        };
+
+        const baseUrl = () => {
+          const host = hostValue() || 'localhost';
+          const port = portValue();
+          const scheme = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(host) ? 'http' : 'https';
+          const defaultPort = scheme === 'https' ? 443 : 80;
+          const suffix = port === defaultPort ? '' : ':' + port;
+          return scheme + '://' + host + suffix;
+        };
+
+        /* ---------- ui helpers ---------- */
+
+        let toastTimer = null;
+        const toast = (message) => {
+          els.toast.textContent = message;
+          els.toast.classList.add('show');
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => els.toast.classList.remove('show'), 1600);
+        };
+
+        const setStatus = (kind, title, sub) => {
+          els.dot.className = 'dot ' + kind;
+          els.title.textContent = title;
+          els.sub.textContent = sub;
+        };
+
+        const clockText = () => new Date().toLocaleTimeString();
+
+        const copyText = async (text) => {
+          try {
+            await navigator.clipboard.writeText(text);
+            toast('Copied');
+          } catch {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand && document.execCommand('copy');
+            ta.remove();
+            toast(ok ? 'Copied' : 'Copy failed — select it manually');
+          }
+        };
+
+        /* ---------- reachability probes ---------- */
+
+        const PROBE_TIMEOUT = 4000;
+
+        const fetchProbe = async (base) => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT);
+          const started = performance.now();
+          try {
+            const sameOrigin = location.origin === base;
+            await fetch(base + '/manifest.json?probe=' + Date.now(), {
+              method: 'GET',
+              cache: 'no-store',
+              signal: controller.signal,
+              ...(sameOrigin ? {} : { mode: 'no-cors', credentials: 'omit', redirect: 'follow' }),
+            });
+            return Math.round(performance.now() - started);
+          } finally {
+            clearTimeout(timer);
+          }
+        };
+
+        const imageProbe = (base) =>
+          new Promise((resolve) => {
+            const img = new Image();
+            const timer = setTimeout(() => {
+              img.remove();
+              resolve(false);
+            }, PROBE_TIMEOUT);
+            img.onload = () => {
+              clearTimeout(timer);
+              resolve(true);
+            };
+            img.onerror = () => {
+              clearTimeout(timer);
+              resolve(false);
+            };
+            img.src = base + '/assets/img/icon.png?probe=' + Date.now();
+          });
+
+        /* ---------- check ---------- */
+
+        const check = async () => {
+          if (checking) return;
+          checking = true;
+          els.checkBtn.disabled = true;
+          const base = baseUrl();
+          setStatus('testing', 'Checking…', base);
+          els.latency.textContent = '—';
+
+          let latency = null;
+          let reachable = false;
+
+          try {
+            latency = await fetchProbe(base);
+            reachable = true;
+          } catch {
+            reachable = await imageProbe(base);
+          }
+
+          checking = false;
+          els.checkBtn.disabled = false;
+          els.lastCheck.textContent = clockText();
+
+          if (reachable) {
+            els.latency.textContent = latency == null ? '—' : latency + ' ms';
+            setStatus('online', 'Online', base);
+          } else {
+            els.latency.textContent = '—';
+            setStatus(
+              'offline',
+              'Unreachable',
+              base + ' — server not running, wrong port, or blocked by the browser'
+            );
+          }
+        };
+
+        /* ---------- auto check ---------- */
+
+        const stopAuto = () => {
+          clearInterval(autoTimer);
+          autoTimer = null;
+        };
+
+        const startAuto = () => {
+          stopAuto();
+          autoTimer = setInterval(() => {
+            if (!document.hidden) check();
+          }, 5000);
+        };
+
+        const syncAuto = () => {
+          if (els.autoCheck.checked) startAuto();
+          else stopAuto();
+        };
+
+        /* ---------- targets ---------- */
+
+        const renderTargets = () => {
+          els.targets.textContent = '';
+          TARGETS.forEach((target) => {
+            const card = document.createElement('div');
+            card.className = 'target';
+
+            const name = document.createElement('div');
+            name.className = 't-name';
+            name.textContent = target.name;
+
+            const path = document.createElement('div');
+            path.className = 't-path';
+            path.textContent = target.path;
+
+            const desc = document.createElement('div');
+            desc.className = 't-desc';
+            desc.textContent = target.desc;
+
+            const actions = document.createElement('div');
+            actions.className = 't-actions';
+
+            const open = document.createElement('button');
+            open.className = 'open primary';
+            open.textContent = 'Open';
+            open.addEventListener('click', () => {
+              window.open(baseUrl() + target.path, '_blank', 'noopener');
+            });
+
+            const copy = document.createElement('button');
+            copy.className = 'ghost';
+            copy.textContent = 'Copy link';
+            copy.addEventListener('click', () => copyText(baseUrl() + target.path));
+
+            actions.append(open, copy);
+            card.append(name, path, desc, actions);
+            els.targets.appendChild(card);
+          });
+        };
+
+        /* ---------- init ---------- */
+
+        const init = () => {
+          const state = loadState();
+
+          if (state.host) els.hostSelect.value = state.host;
+          if (state.customHost) els.customHost.value = state.customHost;
+          if (state.port) els.port.value = state.port;
+          els.autoCheck.checked = Boolean(state.autoCheck);
+
+          els.customHostField.style.display = els.hostSelect.value === '__custom' ? 'flex' : 'none';
+
+          if (location.protocol === 'file:') els.fileNotice.classList.add('show');
+
+          els.checkBtn.addEventListener('click', () => {
+            saveState();
+            check();
+          });
+
+          [els.hostSelect, els.customHost, els.port].forEach((el) => {
+            el.addEventListener('change', () => {
+              els.customHostField.style.display =
+                els.hostSelect.value === '__custom' ? 'flex' : 'none';
+              saveState();
+            });
+          });
+
+          els.autoCheck.addEventListener('change', () => {
+            saveState();
+            syncAuto();
+            if (els.autoCheck.checked) check();
+          });
+
+          document.addEventListener('visibilitychange', () => {
+            if (document.hidden) stopAuto();
+            else if (els.autoCheck.checked) {
+              startAuto();
+              check();
+            }
+          });
+
+          document.querySelectorAll('button[data-copy]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const src = document.getElementById(btn.getAttribute('data-copy'));
+              if (src) copyText(src.textContent.trim());
+            });
+          });
+
+          renderTargets();
+          syncAuto();
+          check();
+        };
+
+        init();
+      })();
+    </script>
+  </body>
+</html>
