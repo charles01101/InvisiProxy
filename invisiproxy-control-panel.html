@@ -108,6 +108,7 @@
       button.primary:hover { background: linear-gradient(180deg, #5b8cff, #4469dd); }
       button.ghost { background: transparent; }
       .toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; cursor: pointer; user-select: none; }
+      .dl { margin-left: auto; white-space: nowrap; }
       .toggle input { width: 16px; height: 16px; accent-color: var(--accent); }
 
       .targets { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
@@ -158,6 +159,9 @@
           <h1>InvisiProxy Control Panel</h1>
           <p>Health check, launcher and boot commands for your local InvisiProxy LTS instance</p>
         </div>
+        <button class="dl" id="downloadBtn" title="Save a copy of this panel to your computer">
+          Download panel
+        </button>
       </header>
 
       <div class="notice" id="fileNotice">
@@ -242,6 +246,10 @@
       (() => {
         'use strict';
 
+        /* Snapshot the pristine document before this script mutates the DOM, so the
+           download button saves a self-contained copy of the panel. */
+        const PAGE_SOURCE = '<!doctype html>\n' + document.documentElement.outerHTML;
+
         const STORAGE_KEY = 'invisiproxy-control-panel';
 
         const TARGETS = [
@@ -269,6 +277,7 @@
           targets: $('targets'),
           toast: $('toast'),
           fileNotice: $('fileNotice'),
+          downloadBtn: $('downloadBtn'),
         };
 
         let autoTimer = null;
@@ -393,6 +402,22 @@
             };
             img.src = base + '/assets/img/icon.png?probe=' + Date.now();
           });
+
+        /* ---------- download ---------- */
+
+        const downloadPanel = () => {
+          const blob = new Blob([PAGE_SOURCE], { type: 'text/html;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'invisiproxy-control-panel.html';
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+          toast('Saving invisiproxy-control-panel.html');
+        };
 
         /* ---------- check ---------- */
 
@@ -538,6 +563,8 @@
               if (src) copyText(src.textContent.trim());
             });
           });
+
+          if (els.downloadBtn) els.downloadBtn.addEventListener('click', downloadPanel);
 
           renderTargets();
           syncAuto();
